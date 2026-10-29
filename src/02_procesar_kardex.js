@@ -48,7 +48,14 @@ const filas = XLSX.utils.sheet_to_json(hoja, { defval: '' });
 function texto(valor) {
     return String(valor ?? '').trim();
 }
-
+function normalizarIdentificador(valor) {
+    return texto(valor)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
 function numero(valor) {
     if (typeof valor === 'number') {
         return Number.isFinite(valor) ? valor : 0;
@@ -115,12 +122,17 @@ const eventos = movimientos.map((fila, indice) => {
 
     const fechaHora = fechaEvento(fila['FECHA'], fila['HORA']);
     const codigoInterno = texto(fila['COD. INTERNO']);
+    const nombreItem = texto(fila['INSUMO / PRODUCTO']);
     const almacen = texto(fila['ALMACEN']);
+
+    const itemId = codigoInterno ||
+        `SIN_CODIGO:${normalizarIdentificador(nombreItem) || `FILA_${indice + 2}`}`;
+
     const documento =
         texto(fila['OBSERVACION']).match(/Nº:\s*(\d+)/i)?.[1] || '';
 
     const claveMovimiento = JSON.stringify([
-        codigoInterno,
+        itemId,
         fechaHora,
         motivo.toUpperCase(),
         almacen.toUpperCase(),
@@ -135,8 +147,8 @@ const eventos = movimientos.map((fila, indice) => {
         source_file: nombreArchivo,
         source_row: indice + 2,
 
-        item_id: texto(fila['COD. INTERNO']) || null,
-        item_name: texto(fila['INSUMO / PRODUCTO']) || null,
+        item_id: itemId,
+        item_name: nombreItem || null,
         category: texto(fila['CATEGORIA']) || null,
         item_type: texto(fila['TIPO ITEM']) || null,
         warehouse: texto(fila['ALMACEN']) || null,
